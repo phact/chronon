@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -x
+
+# create external volume for cassandra data
+mkdir -p /mnt/cassandra
+
+# run dse docker service
+docker run -v /mnt/cassandra:/var/lib/cassandra \
+           -d \
+           -p 4040:4040 \
+           -p 7080:7080 \
+           -p 7081:7081 \
+           -p 8012:8012 \
+           -p 8983:8983 \
+           -p 50030:50030 \
+           -p 50060:50060 \
+           -p 7000:7000 \
+           -p 7001:7001 \
+           -p 7199:7199 \
+           -p 9042:9042 \
+           -p 9160:9160 \
+           -p 7077:7077 \
+           -p 8984:8984 \
+           -p 9290:9290 \
+           -p 10000:10000 \
+           -p 8888:8888 \
+           -p 50031:50031 \
+           -p 61620:61620 \
+           -p 61621:61621 \
+           -p 5587:5587 \
+           -p 5588:5588 \
+           datastaxdemos/datastax-enterprise

@@ -1,0 +1,169 @@
+#!/usr/bin/env python
+
+import os
+import re
+import shlex
+import socket
+import subprocess
+
+from collections import namedtuple
+from optparse import OptionParser, OptionGroup
+
+
+def setup_globals():
+    global options, host_ip
+
+    parser = OptionParser()
+
+    group = OptionGroup(parser, 'Cluster Configurations',
+                        'Configure the cluster.')
+    group.add_option('-c', '--cluster-name',
+                     action='store', type='string', default='Test Cluster',
+                     help='specify the cluster name')
+    group.add_option('-l', '--listen-address',
+                     action='store', type='string',
+                     help='specify the listen_address for this node')
+    parser.add_option_group(group)
+
+    group = OptionGroup(parser, 'Node Type Options',
+                        'Set the DSE node type.')
+    group.add_option('-k', '--spark',
+                     action='store_true', default=False,
+                     help='enable the Spark service')
+    group.add_option('-s', '--solr',
+                     action='store_true', default=False,
+                     help='enable the Solr service')
+    group.add_option('-t', '--hadoop',
+                     action='store_true', default=False,
+                     help='enable the Hadoop (Task Tracker) service')
+    parser.add_option_group(group)
+
+    group = OptionGroup(parser, 'Multi-Node Options',
+                        'Set networking options.')
+    group.add_option('-n', '--seeds',
+                     action='store', type='string', metavar='SEED_LIST',
+                     help='specify a comma-separated seed list')
+    group.add_option('-o', '--opscenter-stomp',
+                     action='store', type='string',
+                     metavar='OPSCENTER_STOMP_IP',
+                     help='specify the opscenter stomp ip')
+    parser.add_option_group(group)
+
+    group = OptionGroup(parser, 'Extra Services',
+                        'Enable extra services.')
+    group.add_option('--sharkserver',
+                     action='store', type='int', metavar='SHARKSERVER_PORT',
+                     help='enable the sharkserver with a port assignment')
+    group.add_option('--hiveserver',
+                     action='store', type='int', metavar='HIVESERVER_PORT',
+                     help='enable the hiveserver with a port assignment')
+    parser.add_option_group(group)
+
+    (options, args) = parser.parse_args()
+    if options.listen_address:
+        host_ip = options.listen_address
+    else:
+        try:
+            host_ip = socket.gethostbyname(socket.gethostname())
+        except:
+            raise Exception('Hostname detection failed.'
+                            ' --listen-address must be provided.')
+
+def run(command, wait=True):
+    process = subprocess.Popen(shlex.split(command),
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+
+    if not wait:
+        Response = namedtuple('Response', 'command process')
+        return Response(command, process)
+
+    read = process.communicate()
+    Response = namedtuple('Response', 'command stdout stderr')
+    return Response(command,
+                    read[0].strip(),
+                    read[1].strip())
+
+
+def configure_default_dse():
+    with open('/etc/default/dse') as f:
+        default_dse = f.read()
+
+    if options.spark:
+        default_dse = default_dse.replace('SPARK_ENABLED=0', 'SPARK_ENABLED=1')
+
+    if options.solr:
+        default_dse = default_dse.replace('SOLR_ENABLED=0', 'SOLR_ENABLED=1')
+
+    if options.hadoop:
+        default_dse = default_dse.replace('HADOOP_ENABLED=0',
+                                          'HADOOP_ENABLED=1')
+
+    with open('/etc/default/dse', 'w') as f:
+        f.write(default_dse)
+
+
+def configure_cassandra_yaml():
+    if not options.seeds:
+        options.seeds = host_ip
+
+    with open('/etc/dse/cassandra/cassandra.yaml') as f:
+        cassandra_yaml = f.read()
+
+    cassandra_yaml = re.sub(r'cluster_name:.*',
+                            'cluster_name: \'%s\'' %
+                            options.cluster_name,
+                            cassandra_yaml)
+    cassandra_yaml = re.sub(r'- seeds:.*', '- seeds: "%s"' % options.seeds,
+                            cassandra_yaml)
+    cassandra_yaml = re.sub(r'listen_address:.*',
+                            'listen_address: %s' % host_ip, cassandra_yaml)
+    cassandra_yaml = re.sub(r'rpc_address:.*', 'rpc_address: 0.0.0.0',
+                            cassandra_yaml)
+
+    with open('/etc/dse/cassandra/cassandra.yaml', 'w') as f:
+        f.write(cassandra_yaml)
+
+
+def configure_agent_yaml():
+    if not options.opscenter_stomp:
+        options.opscenter_stomp = host_ip
+
+    agent_conf_path = '/var/lib/datastax-agent/conf/'
+    if not os.path.exists(agent_conf_path):
+        os.makedirs(agent_conf_path)
+
+    with open(os.path.join(agent_conf_path, 'address.yaml'), 'w') as f:
+        f.write('stomp_interface: %s' % options.opscenter_stomp)
+
+
+def ensure_permissions():
+    run('chown -R cassandra:cassandra /var/lib/cassandra')
+
+
+def start_services():
+    run('service dse start')
+    run('service datastax-agent start')
+
+    if options.sharkserver:
+        run('dse hive --service sharkserver -p %s' % options.sharkserver)
+
+    if options.hiveserver:
+        run('dse hive --service hiveserver -p %s' % options.hiveserver)
+
+
+def main():
+    setup_globals()
+    configure_default_dse()
+    configure_cassandra_yaml()
+    configure_agent_yaml()
+    ensure_permissions()
+    start_services()
+
+    # keep this script running for docker
+    while True:
+        pass
+
+
+if __name__ == '__main__':
+    main()
