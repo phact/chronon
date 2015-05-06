@@ -2,10 +2,10 @@
 echo "====================================="
 echo "=        RESTARTING B2Docker        ="
 echo "====================================="
-boot2docker stop
-boot2docker delete
-boot2docker init
-boot2docker start
+#boot2docker stop
+#boot2docker delete
+#boot2docker init
+#boot2docker start
 
 echo "====================================="
 echo "=        BUILDING DSE               ="
@@ -31,16 +31,16 @@ sleep 10
 echo "====================================="
 echo "=         BUILDING GRAPHITE         ="
 echo "====================================="
-docker build --tag="graphite_api" graphite_api
+docker build --tag="graphite01" graphite_api
 sleep 3
-docker run -d -p 8000:8000 -p 80:80 --link cyanite01:cyanite01 --name "graphite01" graphite_api 
+docker run -d -p 8000:8000 -p 80:80 --link cyanite01:cyanite01 --name "graphite01" graphite01 
 sleep 10
 echo "====================================="
 echo "=         BUILDING GRAFANA         ="
 echo "====================================="
 docker build --tag="grafana" grafana
 sleep 3
-docker run -d -p 3000:3000 --link graphite_api:graphite_api --name "grafana" grafana
+docker run -d -p 3000:3000 --link graphite01:graphite01 --name "grafana" grafana
 sleep 10
 echo "====================================="
 echo "=              ALL DONE             ="

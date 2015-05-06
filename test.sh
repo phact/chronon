@@ -4,7 +4,7 @@
 HOSTNAME=`hostname`
  
 # Set Graphite host
-GRAPHITE=192.168.59.103
+GRAPHITE=`boot2docker ip`
 GRAPHITE_PORT=2003
  
 # Loop forever

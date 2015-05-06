@@ -14,4 +14,4 @@ VOLUME ["/etc/grafana"]
 
 WORKDIR /usr/share/grafana
 
-#ENTRYPOINT ["/usr/sbin/grafana-server", "--config", "/etc/grafana/grafana.ini"]
+ENTRYPOINT ["/usr/sbin/grafana-server", "--config", "/etc/grafana/grafana.ini"]
