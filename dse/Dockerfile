@@ -1,8 +1,8 @@
 FROM       ubuntu:trusty
 MAINTAINER Joaquin Casares <joaquin@datastax.com>
 
-ENV DATASTAX_USER demos_datastax.com
-ENV DATASTAX_PASS 6i8Cjv3lmdKqf01
+ENV DATASTAX_USER 
+ENV DATASTAX_PASS 
 
 # create a docker volume for cassandra data
 VOLUME ["/var/lib/cassandra"]
